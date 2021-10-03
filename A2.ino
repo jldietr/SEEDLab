@@ -8,7 +8,6 @@
   int dt2;
   long ctr = 0;
   long ctr1 = 0;
-  long newtime = millis();
   int oldpos1= 0;
   int oldpos2 = 0;
   long oldtime1 = 0;
@@ -72,7 +71,7 @@ double pos1(){
   return vel1;
 }
 void loop() {
-  long time1 = newtime;
+  long time1 = millis();
   long currentCLK = digitalRead(inputCLK1);
   long currentDT = digitalRead(inputDT1);
   if (currentCLK != clk1){
@@ -83,15 +82,8 @@ void loop() {
       ctr--;
     }
   }
- vel = (ctr-oldpos1)/(time1-oldtime1); // calculate velocity distance/time
- vel += 1;
+ ctr=(2*3.1415*ctr)/3200; // covert counts to radians
+ vel = (ctr-oldpos1)/((time1-oldtime1)*0.001); // multiply by 0.001 for millis 
  oldpos1 = ctr;
  oldtime1 = time1;
- delay(30);
- // pos1();
- Serial.println(vel);
-//newtime = millis();
-int p = newtime/1000;
-
-
 }
