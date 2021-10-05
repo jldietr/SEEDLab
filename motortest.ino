@@ -1,11 +1,9 @@
 #include<Encoder.h>
 #include<math.h>
 
-
-int motorPin = 9;
+#define motorPin = 9;
 
 Encoder myEnc(3, 5);
-
 
 long int oldPosition  = -999;
 double Kp = 0.21;
@@ -18,6 +16,13 @@ int analog;
 int closeEnough = 10;
 long int newPosition;
 
+//MOTOR PIN SETUP:
+//Red to MOTORSHIELD Vcc
+//Black to MOTORSHIELD GND
+//Green to ARDUINO GND
+//Blue to ARDUINO Vcc
+//Yellow to Arduino pin 3
+//White to Arduino pin 5
 void setup() {
   // put your setup code here, to run once:
   Serial.begin(57600);
@@ -26,21 +31,18 @@ void setup() {
   pinMode(4, OUTPUT);
   digitalWrite(4, HIGH);
 
-  pinMode(7, OUTPUT);
+  pinMode(7, OUTPUT); //direction of motor
   pinMode(8, OUTPUT);
   pinMode(motorPin, OUTPUT);
   pinMode(10, OUTPUT);
   pinMode(12, INPUT_PULLUP);
-
+  //raspberry pi input
   pinMode(11, INPUT);
   pinMode(13, INPUT);
-
-
-
+  //raspberry pi output - for displaying desired position
+  pinMode(A4,OUTPUT);
+  pinMode(A5,OUTPUT);
 }
-
-
-
 
 void loop() {
   long int newPosition = myEnc.read();
@@ -48,31 +50,32 @@ void loop() {
     oldPosition = newPosition;
     Serial.println(newPosition);
   }
-
+  //3200cnts/revolution on encoder
+  
   if ( digitalRead(11) == LOW && digitalRead(13) == LOW) {
-    given = 0;
+    given = 800; //pi/2 radians
+    digitalWrite(A4, LOW); digitalWrite(A5,LOW); 
   }
   else if (digitalRead(11) == LOW && digitalRead(13) == HIGH) {
-    given = 800;
-
+    given = 1600; //pi radians
+    digitalWrite(A4, LOW); digitalWrite(A5,HIGH);
   }
   else if (digitalRead(11) == HIGH && digitalRead(13) == LOW) {
-    given = 1600;
-
+    given = 2400; //3pi/2 radians
+    digitalWrite(A4, HIGH); digitalWrite(A5,LOW);
   }
   else if (digitalRead(11) == HIGH && digitalRead(13) == HIGH) {
-    given = 2400;
+    given = 0; //0 radians
+    digitalWrite(A4, HIGH); digitalWrite(A5,HIGH);
   }
-
-
 
   if (newPosition - given < 0 || newPosition - given > 0) {
     currentTime = millis();
     newPosition = myEnc.read();
-    analog = Kp * (double)abs(newPosition - given) + integral * Ki;
+    analog = Kp * (double)abs(newPosition - given) + integral * Ki; //movement speed of motor
     if (analog > 255) {
       analog = 255;
-    }
+    } //limiter for out of bounds for output of controller
     if (analog < 0) {
       analog = 0;
     }
@@ -89,17 +92,15 @@ void loop() {
     Serial.println((double)newPosition * (PI / 1600.0));
   }
 
-
-
-  
+  //integral calculation
   if (abs(newPosition - given) < intThreshholdCounts) {
     integral += (double)abs(newPosition - given) * 0.05;
   }
   else if (abs(newPosition - given) > intThreshholdCounts) {
-    integral = 0;
+    integral = 0; //zero out the integral when we're close enough to desired position
   }
   if (abs(newPosition - given) < closeEnough) {
     integral = 0;
   }
-  while (millis() < currentTime + 50);
+  while (millis() < currentTime + 50); //timer for consistency of next control input calculation - 50ms
 }
