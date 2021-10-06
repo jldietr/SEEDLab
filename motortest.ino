@@ -1,7 +1,12 @@
 #include<Encoder.h>
 #include<math.h>
+#include<Wire.h>
 
-#define motorPin = 9;
+#define SLAVE_ADDRESS 0x04
+int data[32];
+
+
+int motorPin = 9;
 
 Encoder myEnc(3, 5);
 
@@ -28,6 +33,9 @@ void setup() {
   Serial.begin(57600);
   Serial.println("Encoder Test:");
 
+  Wire.begin(SLAVE_ADDRESS);
+  Wire.onRequest(sendData);
+  
   pinMode(4, OUTPUT);
   digitalWrite(4, HIGH);
 
@@ -40,8 +48,7 @@ void setup() {
   pinMode(11, INPUT);
   pinMode(13, INPUT);
   //raspberry pi output - for displaying desired position
-  pinMode(A4,OUTPUT);
-  pinMode(A5,OUTPUT);
+
 }
 
 void loop() {
@@ -50,28 +57,29 @@ void loop() {
     oldPosition = newPosition;
     Serial.println(newPosition);
   }
-  //3200cnts/revolution on encoder
   
+  //3200cnts/revolution on encoder
   if ( digitalRead(11) == LOW && digitalRead(13) == LOW) {
     given = 800; //pi/2 radians
-    digitalWrite(A4, LOW); digitalWrite(A5,LOW); 
+    
   }
   else if (digitalRead(11) == LOW && digitalRead(13) == HIGH) {
     given = 1600; //pi radians
-    digitalWrite(A4, LOW); digitalWrite(A5,HIGH);
+    
   }
   else if (digitalRead(11) == HIGH && digitalRead(13) == LOW) {
     given = 2400; //3pi/2 radians
-    digitalWrite(A4, HIGH); digitalWrite(A5,LOW);
+    
   }
   else if (digitalRead(11) == HIGH && digitalRead(13) == HIGH) {
     given = 0; //0 radians
-    digitalWrite(A4, HIGH); digitalWrite(A5,HIGH);
+    
   }
 
   if (newPosition - given < 0 || newPosition - given > 0) {
     currentTime = millis();
     newPosition = myEnc.read();
+    data[0] = newPosition / 20;
     analog = Kp * (double)abs(newPosition - given) + integral * Ki; //movement speed of motor
     if (analog > 255) {
       analog = 255;
@@ -103,4 +111,8 @@ void loop() {
     integral = 0;
   }
   while (millis() < currentTime + 50); //timer for consistency of next control input calculation - 50ms
+}
+
+void sendData(){
+  Wire.write(data[0]);
 }
