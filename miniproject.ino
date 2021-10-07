@@ -1,10 +1,9 @@
 #include<Encoder.h>
 #include<math.h>
-#include<Wire.h>
+#include<Wire.h> //connects Pi to Arduino for LCD screen
 
 #define SLAVE_ADDRESS 0x04
 int data[32];
-
 
 int motorPin = 9;
 
@@ -33,7 +32,7 @@ void setup() {
   Serial.begin(57600);
   Serial.println("Encoder Test:");
 
-  Wire.begin(SLAVE_ADDRESS);
+  Wire.begin(SLAVE_ADDRESS); //sends data to LCD
   Wire.onRequest(sendData);
   
   pinMode(4, OUTPUT);
@@ -47,8 +46,6 @@ void setup() {
   //raspberry pi input
   pinMode(11, INPUT);
   pinMode(13, INPUT);
-  //raspberry pi output - for displaying desired position
-
 }
 
 void loop() {
@@ -61,19 +58,15 @@ void loop() {
   //3200cnts/revolution on encoder
   if ( digitalRead(11) == LOW && digitalRead(13) == LOW) {
     given = 800; //pi/2 radians
-    
   }
   else if (digitalRead(11) == LOW && digitalRead(13) == HIGH) {
     given = 1600; //pi radians
-    
   }
   else if (digitalRead(11) == HIGH && digitalRead(13) == LOW) {
     given = 2400; //3pi/2 radians
-    
   }
   else if (digitalRead(11) == HIGH && digitalRead(13) == HIGH) {
     given = 0; //0 radians
-    
   }
 
   if (newPosition - given < 0 || newPosition - given > 0) {
