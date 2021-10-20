@@ -4,6 +4,9 @@
  
 // libraries
 #include <Encoder.h>
+#include <Wire.h> //connects Pi to Arduino for LCD screen
+#define SLAVE_ADDRESS 0x04
+char angleCHAR[5];
 
 // system constants
 #define SampleTime      40    // sampling time in milliseconds
@@ -13,7 +16,7 @@
 #define WheelDistance   0.3   // distance between wheels in meters
 
 // conversion constants
-#define DegreeInRadians     0.01745329
+#define DegreeInRadians   0.01745329
 #define MeterInFeet  	    0.3048 
 
 // pins
@@ -21,7 +24,7 @@
 #define PinChannelLA      3     // encoder input pin for left motor channel A
 #define PinChannelRB      5     // encoder input pin for right motor channel B
 #define PinChannelLB      6     // encoder input pin for left motor channel B
-#define Enable		  4	//enable motor
+#define Enable		          4	//enable motor
 #define PinDirectionR     7     // right motor direction
 #define PinDirectionL     8     // left motor direction
 #define PinSpeedR         9    // PWM pin for right motor speed
@@ -37,6 +40,7 @@ actual vs desired + error
 position distnace, position rotation
 speed distance, speed rotation
 */
+int i = 0;
 double actualXY = 0; //current position
 double actualTheta = 0; //current direction facing
 double actualSpeed = 0; //current speed
@@ -73,19 +77,26 @@ void setup() {
   // writes direction to motor
   digitalWrite(PinDirectionR, LOW);
   digitalWrite(PinDirectionL, LOW);
-
+ 
+ // Pi connection
+ Wire.begin(SLAVE_ADDRESS); //sends data to LCD
+  Wire.onRequest(sendData);
+  Wire.onReceive(receiveData);
+ 
 } // end of setup
 
 void loop() {
 
   // variables
- double leftWheelRotation = 0;
- double rightWheelRotation = 0;
+ double degreeLeftWheel = 0;
+ double degreeRightWheel = (rightEnc * 360) / 3200;
   // measures time for delay
  currentTime = millis();
   //take sample of position,calculate position, calculate speed
- desiredXY = (WheelRadius) * ;
- desiredRotation = (WheelRadius/WheelDistance) * (leftWheelRotation - rightWheelRotation);
+ actualXY = (WheelRadius) * 0.5 * (degreeRightWheel + degreeLeftWheel) * DegreeInRadians;
+ actualRotation = (WheelRadius/WheelDistance) * (degreeLeftWheel - degreeRightWheel);
+ 
+ desiredTheta = atof(angleCHAR);
   //determine voltage
    
  // ensures function isn't taking too long
@@ -95,3 +106,14 @@ void loop() {
   while(millis() < (currentTime + SampleTime));
   
 } // end of loop
+
+void receiveData(int byteCount){
+
+  while(Wire.available()) {
+    angle = Wire.read();
+    Serial.print(“data received: “);
+    Serial.println(angle);
+    angleCHAR[i] = angle;
+    i++; // need to reset i once we have the angle
+}
+}
