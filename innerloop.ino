@@ -54,7 +54,7 @@ double desiredTheta = 0;
 void setup() {
 
   // serial communication initialization
-  Serial.begin(9600);
+  Serial.begin(57600);
 
   // assigns pins as either inputs or outputs
   pinMode(PinChannelRA, INPUT);
