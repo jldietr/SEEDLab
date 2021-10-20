@@ -9,7 +9,8 @@
 #define SampleTime      40    // sampling time in milliseconds
 #define MaxVoltage      7.5   // maximum voltage of the input into the motor
 #define WheelRadius     0.0766   // radius of wheel in meters
-#define WheelDistance      // distance between wheels in meters
+//TODO: Measure wheelbase for now assume 1/3 of a meter
+#define WheelDistance   0.3   // distance between wheels in meters
 
 // conversion constants
 #define DegreeInRadians     0.01745329
@@ -36,6 +37,19 @@ actual vs desired + error
 position distnace, position rotation
 speed distance, speed rotation
 */
+double actualXY = 0; //current position
+double actualTheta = 0; //current direction facing
+double actualSpeed = 0; //current speed
+double actualRotation = 0; //current change in angle
+double desiredXY = 0;
+double desiredTheta = 0;
+//double desiredSpeed = 0;
+//double desiredRotation = 0;
+//double errorXY = 0;
+//double errorTheta = 0;
+//double errorSpeed = 0;
+//double errorRotation = 0;
+
 
 void setup() {
 
@@ -64,13 +78,16 @@ void setup() {
 
 void loop() {
 
-  //variables
-  
-    // measures time for delay
-  currentTime = millis();
+  // variables
+ double leftWheelRotation = 0;
+ double rightWheelRotation = 0;
+  // measures time for delay
+ currentTime = millis();
   //take sample of position,calculate position, calculate speed
+ desiredXY = (WheelRadius) * ;
+ desiredRotation = (WheelRadius/WheelDistance) * (leftWheelRotation - rightWheelRotation);
   //determine voltage
-  
+   
  // ensures function isn't taking too long
   if (millis() > (currentTime + SampleTime)) Serial.println("ERROR: Under Sampling!");
   
