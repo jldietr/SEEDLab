@@ -118,5 +118,8 @@ void receiveData(int byteCount){
     Serial.println(angle);
     angleCHAR[i] = angle;
     i++; // need to reset i once we have the angle
+   if (i==6){
+   i=0;
+   }
 }
 }
