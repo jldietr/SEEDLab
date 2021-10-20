@@ -47,12 +47,12 @@ double actualSpeed = 0; //current speed
 double actualRotation = 0; //current change in angle
 double desiredXY = 0;
 double desiredTheta = 0;
-//double desiredSpeed = 0;
-//double desiredRotation = 0;
-//double errorXY = 0;
-//double errorTheta = 0;
-//double errorSpeed = 0;
-//double errorRotation = 0;
+double desiredSpeed = 0;
+double desiredRotation = 0;
+double errorXY = 0;
+double errorTheta = 0;
+double errorSpeed = 0;
+double errorRotation = 0;
 
 
 void setup() {
@@ -88,15 +88,18 @@ void setup() {
 void loop() {
 
   // variables
- double degreeLeftWheel = 0;
- double degreeRightWheel = (rightEnc * 360) / 3200;
+ double degreeLeftWheel = -((leftEnc.read() * 360) / 3200);
+ double degreeRightWheel = (rightEnc.read() * 360) / 3200;
   // measures time for delay
  currentTime = millis();
+ 
   //take sample of position,calculate position, calculate speed
  actualXY = (WheelRadius) * 0.5 * (degreeRightWheel + degreeLeftWheel) * DegreeInRadians;
  actualRotation = (WheelRadius/WheelDistance) * (degreeLeftWheel - degreeRightWheel);
  
+ // get desired angle by converting array of chars to float
  desiredTheta = atof(angleCHAR);
+ 
   //determine voltage
    
  // ensures function isn't taking too long
