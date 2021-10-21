@@ -53,6 +53,8 @@ double errorXY = 0;
 double errorTheta = 0;
 double errorSpeed = 0;
 double errorRotation = 0;
+double errorSumSpeed = 0;
+double errorSumRotation = 0
 
 
 void setup() {
@@ -87,20 +89,39 @@ void setup() {
 
 void loop() {
 
-  // variables
- double degreeLeftWheel = -((leftEnc.read() * 360) / 3200);
- double degreeRightWheel = (rightEnc.read() * 360) / 3200;
-  // measures time for delay
- currentTime = millis();
+  // static variables
+ static unsigned long currentTime = 0;
+ static double newDegreeLeft = 0;
+ static double newDegreeRight = 0;
+ static double oldDegreeRight = 0;
+ static double oldDegreeLeft = 0;
+ static double velocityLeft = 0;
+ static double velocityRight = 0;
+ static double rightV = 0;
+ static double leftV = 0;
+ static double difV = 0;
+ static double sumV = 0;
  
-  //take sample of position,calculate position, calculate speed
- actualXY = (WheelRadius) * 0.5 * (degreeRightWheel + degreeLeftWheel) * DegreeInRadians;
- actualRotation = (WheelRadius/WheelDistance) * (degreeLeftWheel - degreeRightWheel);
+ 
+  // measures time for delay
+  currentTime = millis();
+ 
+  // take sample of position,calculate position, calculate speed
+ degreeRightWheel = (rightEnc.read() * 360) / 3200;
+ degreeLeftWheel = -((leftEnc.read() * 360)) / 3200;
+ 
+ // calculate angular velocity of wheels
+ velocityRight = (1000 * (newDegreeRight - oldDegreeRight)) / SampleTime;
+ velocityRight = (1000 * (newDegreeLeft - oldDegreeLeft)) / SampleTime;
+ 
+ // calculate speed of system
+ actualXY = WheelRadius * 0.5 * (degreeRightWheel + degreeLeftWheel) * DegreeInRadians;
+ actualRotation = (WheelRadius / WheelDistance) * (degreeLeftWheel - degreeRightWheel);
  
  // get desired angle by converting array of chars to float
  desiredTheta = atof(angleCHAR);
  
-  //determine voltage
+ //determine voltage
    
  // ensures function isn't taking too long
   if (millis() > (currentTime + SampleTime)) Serial.println("ERROR: Under Sampling!");
