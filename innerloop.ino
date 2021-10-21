@@ -123,6 +123,11 @@ void loop() {
  
  //determine voltage
    
+ 
+ // reassign angles
+ oldDegreeRight = newDegreeRight;
+ oldDegreeLeft = newDegreeLeft;
+ 
  // ensures function isn't taking too long
   if (millis() > (currentTime + SampleTime)) Serial.println("ERROR: Under Sampling!");
   
