@@ -2,6 +2,7 @@
 
 #define SLAVE_ADDRESS 0x04
 int data[32];
+string angle;
 
 void setup() {
 
@@ -17,21 +18,14 @@ delay(100);
 void receiveData(int byteCount){
 
   while(Wire.available()) {
-    number = Wire.read();
+    angle = Wire.read();
     Serial.print(“data received: “);
-    Serial.println(number);
-
-    if (number == 1){
-
-      if (state == 0){
-        digitalWrite(13, HIGH); // set the LED on
-        state = 1;
-      }
-      else{
-        digitalWrite(13, LOW); // set the LED off
-          state = 0;
-    }
-      }
+    Serial.println(angle);
+    angleCHAR[i] = angle;
+    i++; // need to reset i once we have the angle
+   if (i==6){
+   i=0;
+   }
 }
 }
 void sendData(){
