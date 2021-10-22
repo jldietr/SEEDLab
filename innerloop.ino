@@ -13,18 +13,18 @@ char angleCHAR[5];
 #define MaxVoltage      7.5   // maximum voltage of the input into the motor
 #define WheelRadius     0.0766   // radius of wheel in meters
 //TODO: Measure wheelbase for now assume 1/3 of a meter
-#define WheelDistance   0.3   // distance between wheels in meters
+#define WheelDistance   0.3048   // distance between wheels in meters
 
 // conversion constants
-#define DegreeInRadians   0.01745329
-#define MeterInFeet  	    0.3048 
+#define DegreesToRadians   0.01745329
+#define MeterInFeet        0.3048 
 
 // pins
 #define PinChannelRA      2     // encoder input pin for right motor channel A
 #define PinChannelLA      3     // encoder input pin for left motor channel A
 #define PinChannelRB      5     // encoder input pin for right motor channel B
 #define PinChannelLB      6     // encoder input pin for left motor channel B
-#define Enable		          4	//enable motor
+#define Enable              4 //enable motor
 #define PinDirectionR     7     // right motor direction
 #define PinDirectionL     8     // left motor direction
 #define PinSpeedR         9    // PWM pin for right motor speed
@@ -101,28 +101,69 @@ void loop() {
  static double leftV = 0;
  static double difV = 0;
  static double sumV = 0;
- 
- 
+ static int analog = 0;
+ static int deltaTheta = 0;
+ static double omega = 0;
   // measures time for delay
   currentTime = millis();
  
   // take sample of position,calculate position, calculate speed
- degreeRightWheel = (rightEnc.read() * 360) / 3200;
- degreeLeftWheel = -((leftEnc.read() * 360)) / 3200;
+ newDegreeRight = (rightEnc.read() * 360) / 3200;
+ newDegreeLeft = -((leftEnc.read() * 360)) / 3200;
+
+
+ 
+ distanceRightWheelTravelled = (rightEnc.read()*(360/3200)) * WheelRadius; // X_wheel(t) = Radius_wheel * Theta_wheel(t)
+ distanceLeftWheelTravelled = (leftEnc.read()*(360/3200)) * WheelRadius; // X_wheel(t) = Radius_wheel * Theta_wheel(t)
+
+ currentTheta = distanceWheelTravelled / (WheelDistance * 0.5); // Theta_sys(t) = X_wheel(t) / Radius_sys
+ 
+//TODO: Error between distance of Right wheel travelled and Left wheel must be below certain threshhold
+
  
  // calculate angular velocity of wheels
- velocityRight = (1000 * (newDegreeRight - oldDegreeRight)) / SampleTime;
- velocityRight = (1000 * (newDegreeLeft - oldDegreeLeft)) / SampleTime;
+// velocityRight = (1000 * (newDegreeRight - oldDegreeRight)) / SampleTime;
+ //velocityLeft = (1000 * (newDegreeLeft - oldDegreeLeft)) / SampleTime;
  
  // calculate speed of system
- actualXY = WheelRadius * 0.5 * (degreeRightWheel + degreeLeftWheel) * DegreeInRadians;
- actualRotation = (WheelRadius / WheelDistance) * (degreeLeftWheel - degreeRightWheel);
+ //actualXY = WheelRadius * 0.5 * (newDegreeRight + newDegreeLeft) * DegreesToRadians;
+ //actualRotation = (WheelRadius / WheelDistance) * (newDegreeLeft - newDegreeRight);
  
  // get desired angle by converting array of chars to float
  desiredTheta = atof(angleCHAR);
+
+deltaTheta = currentTheta - desiredTheta;
  
  //determine voltage
-   
+   if(deltaTheta != 0) {
+    analog = Kp * (double)abs(deltaTheta) + integral*Ki;
+    if(analog > 255) {
+      analog = 255;
+    }
+    if(analog < 0) {
+      analog = 0;
+    }
+    analogWrite(PinSpeedR, analog);
+    analogWrite(PinSpeedL, analog);
+    if(deltaTheta < 0) {
+      digitalWrite(PinDirectionR, HIGH);
+      digitalWrite(PinDirectionL, HIGH);
+    }
+    if(deltaTheta > 0) {
+      digitalWrite(PinDirectionR, LOW);
+      digitalWrite(PinDirectionL, LOW);
+    }
+   }
+
+   if(abs(deltaTheta) < intThreshhold) {
+      integral += (double)abs(deltaTheta) * 0.04;
+   }
+   else if(abs(deltaTheta) > intThreshhold){
+    integral = 0;
+   }
+   if ( abs(deltaTheta) < closeEnough) {
+    integral = 0;
+   }
  
  // reassign angles
  oldDegreeRight = newDegreeRight;
