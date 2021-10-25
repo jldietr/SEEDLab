@@ -56,7 +56,7 @@ double desiredTheta = 0;
 
 double errorPosition = 0;
 
-double angle = 20; //TEST ANGLE
+
 
 double Ke = 0.01;
 double Kp = 6;
@@ -144,7 +144,7 @@ void loop() {
 
     // get desired angle by converting array of chars to float
     angle = atof(angleName.c_str());
-    desiredTheta = angle; //TEST ANGLE, DON'T USE FOR ACTUAL
+    desiredTheta = angle; 
     deltaTheta = currentTheta - desiredTheta;
 
     //determine voltage
