@@ -6,10 +6,15 @@
 
 // libraries
 #include <Encoder.h>
-#include<math.h>
+#include <math.h>
 #include <Wire.h> //connects Pi to Arduino for LCD screen
+#include <stdlib.h>
+
 #define SLAVE_ADDRESS 0x04
 char angleCHAR[6];
+int angleRAW[6];
+int zeroTrack;
+string angleName;
 
 // system constants
 #define SampleTime      40    // sampling time in milliseconds
@@ -138,7 +143,7 @@ void loop() {
   //actualRotation = (WheelRadius / WheelDistance) * (newDegreeLeft - newDegreeRight);
 
   // get desired angle by converting array of chars to float
-  // desiredTheta = atof(angleCHAR);
+  angle = atof(angleName.c_str());
   desiredTheta = angle; //TEST ANGLE, DON'T USE FOR ACTUAL
   deltaTheta = currentTheta - desiredTheta;
 
@@ -198,11 +203,20 @@ void receiveData(int byteCount){
     if (angle != 0){
     Serial.print(“data received: “);
     Serial.println(angle);
-    angleCHAR[i] = angle;
+    angleRAW[i] = angle;
+    angleCHAR[i] = angleRAW[i];
+    angleName += angleCHAR[i];
     i++; // need to reset i once we have the angle
+    zeroTrack = 0;
    if (i==6){
    i=0;
    }
 }
+     if(angle == 0){
+        zeroTrack++;
+        if(zeroTrack == 2){
+           break;
+        }
+     }
   }
 }
