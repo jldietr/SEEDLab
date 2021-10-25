@@ -153,7 +153,7 @@ void loop() {
     deltaTheta = currentTheta - desiredTheta;
 
     //determine voltage
-    if (deltaTheta != 0) {
+     if (deltaTheta != 0 && correctAngle == false) {
         analog = Kp * (double) abs(deltaTheta) + integral * Ki;
         if (analog > 255) {
             analog = 255;
@@ -161,14 +161,10 @@ void loop() {
         if (analog < 0) {
             analog = 0;
         }
-        if (errorPosition < 0) {
-            analogWrite(PinSpeedR, analog);
-            analogWrite(PinSpeedL, analog);
-        }
-        if (errorPosition >= 0) {
-            analogWrite(PinSpeedL, analog);
-            analogWrite(PinSpeedR, analog);
-        }
+        
+        analogWrite(PinSpeedR, analog);
+        analogWrite(PinSpeedL, analog);
+
 
         if (deltaTheta < 0) {
             digitalWrite(PinDirectionR, HIGH);
@@ -178,6 +174,13 @@ void loop() {
             digitalWrite(PinDirectionR, LOW);
             digitalWrite(PinDirectionL, LOW);
         }
+
+        if(abs(deltaTheta) < 0.1){
+          correctAngle = true;
+        }
+    }
+    if(deltaPosition != 0 && correctAngle == true){
+      
     }
 
     if (abs(deltaTheta) < intThreshhold) {
