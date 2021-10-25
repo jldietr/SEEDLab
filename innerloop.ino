@@ -9,7 +9,7 @@
 #include<math.h>
 #include <Wire.h> //connects Pi to Arduino for LCD screen
 #define SLAVE_ADDRESS 0x04
-char angleCHAR[5];
+char angleCHAR[6];
 
 // system constants
 #define SampleTime      40    // sampling time in milliseconds
@@ -191,10 +191,11 @@ void loop() {
 
     } // end of loop
 
-/*void receiveData(int byteCount){
+void receiveData(int byteCount){
 
   while(Wire.available()) {
     angle = Wire.read();
+    if (angle != 0){
     Serial.print(“data received: “);
     Serial.println(angle);
     angleCHAR[i] = angle;
@@ -202,5 +203,6 @@ void loop() {
    if (i==6){
    i=0;
    }
+}
   }
-  }*/
+}
