@@ -19,6 +19,7 @@ void receiveData(int byteCount){
 
   while(Wire.available()) {
     angle = Wire.read();
+    if (angle != 0){
     Serial.print(“data received: “);
     Serial.println(angle);
     angleCHAR[i] = angle;
@@ -27,6 +28,7 @@ void receiveData(int byteCount){
    i=0;
    }
 }
+  }
 }
 void sendData(){
   Wire.write(data[0]);
