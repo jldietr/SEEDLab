@@ -67,10 +67,12 @@ double Kp = 3.8;
 double Ki = 1.1;
 
 
+void receiveData(int byteCount);
+
 void setup() {
 
   // serial communication initialization
-  Serial.begin(57600);
+  Serial.begin(115200);
 
   // assigns pins as either inputs or outputs
   pinMode(Enable, OUTPUT);
@@ -78,6 +80,8 @@ void setup() {
   pinMode(PinDirectionL, OUTPUT);
   pinMode(PinSpeedR, OUTPUT);
   pinMode(PinSpeedL, OUTPUT);
+
+  pinMode(12, INPUT_PULLUP);
 
   // enables motors
   digitalWrite(Enable, HIGH);
@@ -111,6 +115,7 @@ double moveCloseEnough = 0.005;
 double intMoveThreshhold = 0.5;
 bool switchAdjustPos = true;
 double adjuster = 0;
+bool gotime = 0;
 
 void loop() {
 
@@ -164,10 +169,17 @@ void loop() {
   deltaTheta = currentTheta - desiredTheta;
 
   
-  desiredPosition = 0.9638;
+  desiredPosition = 1;
   deltaPosition = desiredPosition - currentPosition;
    Serial.println(desiredTheta);
   //determine voltage
+
+if(digitalRead(12) == HIGH) {
+  gotime = true;
+}
+
+  if(gotime == true){
+  
   if (deltaTheta != 0 && correctAngle == false) {
 
    
@@ -244,7 +256,7 @@ void loop() {
     
    }
 
-
+  }
   // Serial.println(rightEnc.read());
   //Serial.println(leftEnc.read());
   // reassign angles
@@ -256,6 +268,10 @@ void loop() {
   while (millis() < (currentTime + SampleTime));
 
 } // end of loop
+
+
+
+
 
 void receiveData(int byteCount) {
 
