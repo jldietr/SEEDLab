@@ -41,7 +41,7 @@ float angle;
 #define PinSpeedL         10    // PWM pin for left motor speed    
 #define RadiansToDegrees 180/PI
 
-#define intThreshhold 5
+#define intThreshhold 6
 #define closeEnough 1.2
 
 
@@ -87,9 +87,8 @@ void setup() {
   digitalWrite(PinDirectionL, LOW);
 
   // Pi connection
-   // Wire.begin(SLAVE_ADDRESS); //sends data to LCD
-   // Wire.onRequest(sendData);
-   // Wire.onReceive(receiveData);
+    Wire.begin(SLAVE_ADDRESS); //sends data to LCD
+   Wire.onReceive(receiveData);
     
 } // end of setup
 
@@ -105,10 +104,10 @@ bool correctAngle = 0;
 double deltaPosition = 0;
 double desiredPosition = 0;
 double integralMove = 0;
-double Kmovep = 200;
-double Kmovei = 40;
+double Kmovep = 300;
+double Kmovei = 70;
 double currentPosition = 0;
-double moveCloseEnough = 0.01;
+double moveCloseEnough = 0.005;
 double intMoveThreshhold = 0.5;
 bool switchAdjustPos = true;
 double adjuster = 0;
@@ -132,7 +131,7 @@ void loop() {
 
   // take sample of position,calculate position, calculate speed
 
-  Serial.println(currentPosition);
+  //Serial.println(currentPosition);
 
   distanceRightWheelTravelled =
     ((double) rightEnc.read() * ((2 * PI) / 3200)) * WheelRadius; // X_wheel(t) = Radius_wheel * Theta_wheel(t)
@@ -157,20 +156,21 @@ void loop() {
   //actualRotation = (WheelRadius / WheelDistance) * (newDegreeLeft - newDegreeRight);
 
   // get desired angle by converting array of chars to float
-  //angle = atof(angleName.c_str());
-  //angle = atof(angleCHAR);
-  angle = 18.43;
+ 
+  angle = atof(angleCHAR);
+ 
+  //angle = 18.43;
   desiredTheta = angle;
   deltaTheta = currentTheta - desiredTheta;
 
-
+  
   desiredPosition = 0.9638;
   deltaPosition = desiredPosition - currentPosition;
-
+   Serial.println(desiredTheta);
   //determine voltage
   if (deltaTheta != 0 && correctAngle == false) {
 
-   Serial.println("turning");
+   
     analog = Kp * (double) abs(deltaTheta) + integral * Ki;
     if (analog > 255) {
       analog = 255;
@@ -219,7 +219,7 @@ void loop() {
   }
   currentPosition -= adjuster;
    if(deltaPosition != 0 && correctAngle == true){
-    Serial.println("moving forward");
+    //Serial.println("moving forward");
     analog = Kmovep * (double)abs(deltaPosition) + Kmovei * integralMove;
     if ( analog > 255) {
       analog = 255;
