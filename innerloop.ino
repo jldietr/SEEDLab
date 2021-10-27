@@ -62,7 +62,7 @@ double errorPosition = 0;
 
 
 
-double Ke = 0.05;
+double Ke = 20;
 double Kp = 3.8;
 double Ki = 1.1;
 
@@ -81,7 +81,7 @@ void setup() {
   pinMode(PinSpeedR, OUTPUT);
   pinMode(PinSpeedL, OUTPUT);
 
-  pinMode(12, INPUT_PULLUP);
+  pinMode(11, INPUT);
 
   // enables motors
   digitalWrite(Enable, HIGH);
@@ -115,7 +115,11 @@ double moveCloseEnough = 0.005;
 double intMoveThreshhold = 0.5;
 bool switchAdjustPos = true;
 double adjuster = 0;
-bool gotime = 0;
+
+bool stopRead = false;
+bool gotime = false;
+bool buttonState = 0;
+bool switchTime = 0;
 
 void loop() {
 
@@ -125,7 +129,6 @@ void loop() {
   static double newDegreeRight = 0;
   static double oldDegreeRight = 0;
    static double oldDegreeLeft = 0;
-
   
 
 
@@ -143,7 +146,8 @@ void loop() {
   distanceLeftWheelTravelled =
     ((double) leftEnc.read() * ((2 * PI) / 3200)) * WheelRadius; // X_wheel(t) = Radius_wheel * Theta_wheel(t)
 
-  errorPosition = distanceRightWheelTravelled - distanceLeftWheelTravelled;
+  errorPosition = distanceRightWheelTravelled + distanceLeftWheelTravelled;
+  Serial.println(errorPosition);
 
   currentTheta = -RadiansToDegrees *
                  (distanceRightWheelTravelled / (WheelDistance * 0.5)) / 2 + -RadiansToDegrees * (distanceLeftWheelTravelled / (WheelDistance * 0.5)) / 2; // Theta_sys(t) = X_wheel(t) / Radius_sys
@@ -161,28 +165,46 @@ void loop() {
   //actualRotation = (WheelRadius / WheelDistance) * (newDegreeLeft - newDegreeRight);
 
   // get desired angle by converting array of chars to float
- 
-  angle = atof(angleCHAR);
- 
-  //angle = 18.43;
+ if ( stopRead == false){
+  //angle = atof(angleCHAR);
+  angle = 45;
+ }
+  
   desiredTheta = angle;
   deltaTheta = currentTheta - desiredTheta;
 
   
   desiredPosition = 1;
   deltaPosition = desiredPosition - currentPosition;
-   Serial.println(desiredTheta);
+  // Serial.println(desiredTheta);
   //determine voltage
 
-if(digitalRead(12) == HIGH) {
-  gotime = true;
+buttonState = digitalRead(11);
+//Serial.println(switchTime);
+if(buttonState == true) {
+  switchTime = !switchTime;
+  if(switchTime == true){
+    gotime = true;
+    stopRead = true;
+  }
+  if(switchTime == false){
+    gotime = false;
+    stopRead = false;
+    correctAngle = false;
+    switchAdjustPos = true;
+    analogWrite(PinSpeedR, 0);
+    analogWrite(PinSpeedL, 0);
+  }
+    rightEnc.write(0);
+    leftEnc.write(0);
+  delay(200);
 }
 
-  if(gotime == true){
+ if(gotime == true){
   
   if (deltaTheta != 0 && correctAngle == false) {
 
-   
+   Serial.println("turning");
     analog = Kp * (double) abs(deltaTheta) + integral * Ki;
     if (analog > 255) {
       analog = 255;
@@ -224,12 +246,12 @@ if(digitalRead(12) == HIGH) {
   }
 
   if(switchAdjustPos && correctAngle){
-    adjuster = currentPosition;
+    leftEnc.write(0);
+    rightEnc.write(0);
     switchAdjustPos = false;
     Serial.println("Adjusting");
-    
+    delay(400);
   }
-  currentPosition -= adjuster;
    if(deltaPosition != 0 && correctAngle == true){
     //Serial.println("moving forward");
     analog = Kmovep * (double)abs(deltaPosition) + Kmovei * integralMove;
@@ -239,10 +261,25 @@ if(digitalRead(12) == HIGH) {
     if ( analog < 0 ) {
       analog = 0;
     }
-    analogWrite(PinSpeedR, analog);
-    analogWrite(PinSpeedL, analog);
+    analogWrite(PinSpeedR, analog - Ke*errorPosition);
+    analogWrite(PinSpeedL, analog + Ke*errorPosition);
+
+    if ( analog > 255) {
+      analog = 255;
+    }
+    if ( analog < 0 ) {
+      analog = 0;
+    }
+    Serial.println(analog+Ke*errorPosition);
+    Serial.println(deltaPosition);
+    if ( deltaPosition >=0 ){
     digitalWrite(PinDirectionR, HIGH);
     digitalWrite(PinDirectionL, LOW);
+    }
+    if (deltaPosition < 0 ) {
+      digitalWrite(PinDirectionR, LOW);
+      digitalWrite(PinDirectionL, HIGH);
+    }
 
     if ( abs(deltaPosition) < intMoveThreshhold) {
       integralMove += (double)abs(deltaPosition) * 0.04;
@@ -254,7 +291,7 @@ if(digitalRead(12) == HIGH) {
       integralMove = 0;
     }
     
-   }
+ }
 
   }
   // Serial.println(rightEnc.read());
@@ -278,8 +315,8 @@ void receiveData(int byteCount) {
   while (Wire.available()) {
     angleRead = Wire.read();
     if (angleRead != 0) {
-      Serial.print("data received: ");
-      Serial.println(angleRead);
+//      Serial.print("data received: ");
+//      Serial.println(angleRead);
       angleRAW[i] = angleRead;
       angleCHAR[i] = angleRAW[i];
       //angleName += angleCHAR[i];
