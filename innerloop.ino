@@ -62,8 +62,8 @@ double errorPosition = 0;
 
 
 
-double Ke = 20;
-double Kp = 3.8;
+double Ke = 0;
+double Kp = 3.3;
 double Ki = 1.1;
 
 
@@ -91,9 +91,9 @@ void setup() {
   digitalWrite(PinDirectionL, LOW);
 
   // Pi connection
-    Wire.begin(SLAVE_ADDRESS); //sends data to LCD
-   Wire.onReceive(receiveData);
-    
+  Wire.begin(SLAVE_ADDRESS); //sends data to LCD
+  Wire.onReceive(receiveData);
+
 } // end of setup
 
 
@@ -121,21 +121,29 @@ bool gotime = false;
 bool buttonState = 0;
 bool switchTime = 0;
 
+double velocityRight = 0;
+double velocityLeft = 0;
+double errorVelocity = 0;
+
+   double newDegreeLeft = 0;
+   double newDegreeRight = 0;
+   double oldDegreeRight = 0;
+   double oldDegreeLeft = 0;
+   
 void loop() {
 
   // static variables
 
-   static double newDegreeLeft = 0;
-  static double newDegreeRight = 0;
-  static double oldDegreeRight = 0;
-   static double oldDegreeLeft = 0;
-  
+  static double analogLeft = 0;
+  static double analogRight = 0;
 
+  currentTime = millis();
 
-
+  newDegreeLeft = (double)(leftEnc.read() * ((360.0) / 3200.0));
+  newDegreeRight = (double)(rightEnc.read() * ((360.0) / 3200.0));
 
   // measures time for delay
-  currentTime = millis();
+
 
   // take sample of position,calculate position, calculate speed
 
@@ -147,157 +155,183 @@ void loop() {
     ((double) leftEnc.read() * ((2 * PI) / 3200)) * WheelRadius; // X_wheel(t) = Radius_wheel * Theta_wheel(t)
 
   errorPosition = distanceRightWheelTravelled + distanceLeftWheelTravelled;
-  Serial.println(errorPosition);
+  //Serial.println(errorPosition);
 
   currentTheta = -RadiansToDegrees *
                  (distanceRightWheelTravelled / (WheelDistance * 0.5)) / 2 + -RadiansToDegrees * (distanceLeftWheelTravelled / (WheelDistance * 0.5)) / 2; // Theta_sys(t) = X_wheel(t) / Radius_sys
 
 
-  currentPosition = (distanceRightWheelTravelled/2 - distanceLeftWheelTravelled/2);
+  currentPosition = (distanceRightWheelTravelled / 2 - distanceLeftWheelTravelled / 2);
 
 
   // calculate angular velocity of wheels
- // velocityRight = (1000 * (newDegreeRight - oldDegreeRight)) / SampleTime;
-  //velocityLeft = (1000 * (newDegreeLeft - oldDegreeLeft)) / SampleTime;
+  velocityRight = (1000 * (newDegreeRight - oldDegreeRight)) / SampleTime;
+  velocityLeft = (1000 * (newDegreeLeft - oldDegreeLeft)) / SampleTime;
 
+  
+  errorVelocity = velocityRight + velocityLeft;
+  
   // calculate speed of system
   //actualXY = WheelRadius * 0.5 * (newDegreeRight + newDegreeLeft) * DegreesToRadians;
   //actualRotation = (WheelRadius / WheelDistance) * (newDegreeLeft - newDegreeRight);
 
   // get desired angle by converting array of chars to float
- if ( stopRead == false){
-  //angle = atof(angleCHAR);
-  angle = 45;
- }
-  
+  if ( stopRead == false) {
+    //angle = atof(angleCHAR);
+    angle = -116.6;
+  }
+
   desiredTheta = angle;
   deltaTheta = currentTheta - desiredTheta;
 
+  Serial.println(errorPosition);
   
-  desiredPosition = 1;
+  desiredPosition = 0.6096 + 0.045;
   deltaPosition = desiredPosition - currentPosition;
   // Serial.println(desiredTheta);
   //determine voltage
 
-buttonState = digitalRead(11);
-//Serial.println(switchTime);
-if(buttonState == true) {
-  switchTime = !switchTime;
-  if(switchTime == true){
-    gotime = true;
-    stopRead = true;
-  }
-  if(switchTime == false){
-    gotime = false;
-    stopRead = false;
-    correctAngle = false;
-    switchAdjustPos = true;
-    analogWrite(PinSpeedR, 0);
-    analogWrite(PinSpeedL, 0);
-  }
+  buttonState = digitalRead(11);
+  //Serial.println(switchTime);
+  if (buttonState == true) {
+    switchTime = !switchTime;
+    if (switchTime == true) {
+      gotime = true;
+      stopRead = true;
+    }
+    if (switchTime == false) {
+      gotime = false;
+      stopRead = false;
+      correctAngle = false;
+      switchAdjustPos = true;
+      analogWrite(PinSpeedR, 0);
+      analogWrite(PinSpeedL, 0);
+    }
     rightEnc.write(0);
     leftEnc.write(0);
-  delay(200);
-}
+    delay(200);
+  }
 
- if(gotime == true){
-  
-  if (deltaTheta != 0 && correctAngle == false) {
+  if (gotime == true) {
 
-   Serial.println("turning");
-    analog = Kp * (double) abs(deltaTheta) + integral * Ki;
-    if (analog > 255) {
-      analog = 255;
-    }
-    if (analog < 0) {
-      analog = 0;
-    }
-    if ( errorPosition >= 0 ) {
-      analogWrite(PinSpeedR, analog);
-      analogWrite(PinSpeedL, analog);
-    }
-    if ( errorPosition < 0 ) {
-      analogWrite(PinSpeedL, analog);
-      analogWrite(PinSpeedR, analog);
-    }
-    if (deltaTheta < 0) {
-      digitalWrite(PinDirectionR, HIGH);
-      digitalWrite(PinDirectionL, HIGH);
-    }
-    if (deltaTheta > 0) {
-      digitalWrite(PinDirectionR, LOW);
-      digitalWrite(PinDirectionL, LOW);
-    }
+    if (deltaTheta != 0 && correctAngle == false) {
+
+      Serial.println("turning");
+      analog = Kp * (double) abs(deltaTheta) + integral * Ki;
+      if (analog > 255) {
+        analog = 255;
+      }
+      if (analog < 0) {
+        analog = 0;
+      }
+      if ( errorPosition >= 0 ) {
+        analogWrite(PinSpeedR, analog);
+        analogWrite(PinSpeedL, analog);
+      }
+      if ( errorPosition < 0 ) {
+        analogWrite(PinSpeedL, analog);
+        analogWrite(PinSpeedR, analog);
+      }
+      if (deltaTheta < 0) {
+        digitalWrite(PinDirectionR, HIGH);
+        digitalWrite(PinDirectionL, HIGH);
+      }
+      if (deltaTheta > 0) {
+        digitalWrite(PinDirectionR, LOW);
+        digitalWrite(PinDirectionL, LOW);
+      }
 
 
-    if (abs(deltaTheta) < intThreshhold) {
-      integral += (double) abs(deltaTheta) * 0.04;
-    } else if (abs(deltaTheta) > intThreshhold) {
-      integral = 0;
-    }
-    if (abs(deltaTheta) < closeEnough) {
-      integral = 0;
-    }
+      if (abs(deltaTheta) < intThreshhold) {
+        integral += (double) abs(deltaTheta) * 0.04;
+      } else if (abs(deltaTheta) > intThreshhold) {
+        integral = 0;
+      }
+      if (abs(deltaTheta) < closeEnough) {
+        integral = 0;
+      }
 
-    
-    if (abs(deltaTheta) < closeEnough) {
+
+      if (abs(deltaTheta) < closeEnough) {
+        correctAngle = true;
+      }
+    }
+    if(deltaTheta == 0) {
       correctAngle = true;
     }
-  }
 
-  if(switchAdjustPos && correctAngle){
-    leftEnc.write(0);
-    rightEnc.write(0);
-    switchAdjustPos = false;
-    Serial.println("Adjusting");
-    delay(400);
-  }
-   if(deltaPosition != 0 && correctAngle == true){
-    //Serial.println("moving forward");
-    analog = Kmovep * (double)abs(deltaPosition) + Kmovei * integralMove;
-    if ( analog > 255) {
-      analog = 255;
+    if (switchAdjustPos && correctAngle) {
+      leftEnc.write(0);
+      rightEnc.write(0);
+      switchAdjustPos = false;
+      Serial.println("Adjusting");
+      delay(400);
     }
-    if ( analog < 0 ) {
-      analog = 0;
-    }
-    analogWrite(PinSpeedR, analog - Ke*errorPosition);
-    analogWrite(PinSpeedL, analog + Ke*errorPosition);
+    if (deltaPosition != 0 && correctAngle == true) {
+      //Serial.println("moving forward");
+      analog = Kmovep * (double)deltaPosition + Kmovei * integralMove;
+      analogRight = analog + Ke*errorPosition;
+      analogLeft = analog - Ke*errorPosition;
+      if ( analogRight > 255) {
+        analogRight = 170;
+      }
+      if ( analogRight < -255 ) {
+        analogRight = -170;
+      }
+      if ( analogRight >= 0 ) {
+        digitalWrite(PinDirectionR, HIGH);
+      }
+      if (analogRight < 0 ) {
+        digitalWrite(PinDirectionR, LOW);
+      }
+         if ( analogLeft > 255) {
+        analogLeft= 175;
+      }
+      if ( analogLeft < -255 ) {
+        analogLeft = -175;
+      }
+      if ( analogLeft >= 0 ) {
+        digitalWrite(PinDirectionL, LOW);
+      }
+      if (analogLeft < 0 ) {
+        digitalWrite(PinDirectionL, HIGH);
+      }
+      
 
-    if ( analog > 255) {
-      analog = 255;
-    }
-    if ( analog < 0 ) {
-      analog = 0;
-    }
-    Serial.println(analog+Ke*errorPosition);
-    Serial.println(deltaPosition);
-    if ( deltaPosition >=0 ){
-    digitalWrite(PinDirectionR, HIGH);
-    digitalWrite(PinDirectionL, LOW);
-    }
-    if (deltaPosition < 0 ) {
-      digitalWrite(PinDirectionR, LOW);
-      digitalWrite(PinDirectionL, HIGH);
-    }
+      analogWrite(PinSpeedR, abs(analogRight));
+      analogWrite(PinSpeedL, abs(analogLeft));
 
-    if ( abs(deltaPosition) < intMoveThreshhold) {
-      integralMove += (double)abs(deltaPosition) * 0.04;
+      Serial.println(analogRight + Ke * errorPosition);
+      Serial.println(analogLeft - Ke * errorPosition);
+      //Serial.println(deltaPosition);
+//      if ( analog >= 0 ) {
+//        digitalWrite(PinDirectionR, HIGH);
+//        digitalWrite(PinDirectionL, LOW);
+//      }
+//      if (analog < 0 ) {
+//        digitalWrite(PinDirectionR, LOW);
+//        digitalWrite(PinDirectionL, HIGH);
+//      }
+      
+
+      if ( abs(deltaPosition) < intMoveThreshhold) {
+        integralMove += (double)abs(deltaPosition) * 0.04;
+      }
+      else if (abs(deltaPosition) > intMoveThreshhold) {
+        integralMove = 0;
+      }
+      if ( abs(deltaPosition) < moveCloseEnough) {
+        integralMove = 0;
+      }
+
     }
-    else if (abs(deltaPosition) > intMoveThreshhold) {
-      integralMove = 0;
-    }
-    if ( abs(deltaPosition) < moveCloseEnough) {
-      integralMove = 0;
-    }
-    
- }
 
   }
   // Serial.println(rightEnc.read());
   //Serial.println(leftEnc.read());
   // reassign angles
-
+  oldDegreeLeft = newDegreeLeft;
+  oldDegreeRight = newDegreeRight;
   // ensures function isn't taking too long
   if (millis() > (currentTime + SampleTime)) Serial.println("ERROR: Under Sampling!");
 
@@ -315,8 +349,8 @@ void receiveData(int byteCount) {
   while (Wire.available()) {
     angleRead = Wire.read();
     if (angleRead != 0) {
-//      Serial.print("data received: ");
-//      Serial.println(angleRead);
+      //      Serial.print("data received: ");
+      //      Serial.println(angleRead);
       angleRAW[i] = angleRead;
       angleCHAR[i] = angleRAW[i];
       //angleName += angleCHAR[i];
