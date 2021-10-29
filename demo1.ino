@@ -149,9 +149,6 @@ void loop() {
   // calculate difference in velocity between right and left wheels
   errorVelocity = velocityRight + velocityLeft;
   
-  // calculate speed of system
-  //actualXY = WheelRadius * 0.5 * (newDegreeRight + newDegreeLeft) * DegreesToRadians;
-  //actualRotation = (WheelRadius / WheelDistance) * (newDegreeLeft - newDegreeRight);
 
   // get desired angle by converting array of chars to float
   if ( stopRead == false) {
@@ -169,13 +166,14 @@ void loop() {
   // Serial.println(desiredTheta);
   //determine voltage
 
+   //button to reset the robot so it can try to find a new angle
   buttonState = digitalRead(11);
   //Serial.println(switchTime);
   if (buttonState == true) {
     switchTime = !switchTime;
     if (switchTime == true) {
-      gotime = true;
-      stopRead = true;
+      gotime = true; //flag to start moving towards an angle
+      stopRead = true; // flag to stop trying to read a new angle from the Pi
     }
     if (switchTime == false) {
       gotime = false;
@@ -229,7 +227,6 @@ void loop() {
         integral = 0;
       }
 
-
       if (abs(deltaTheta) < closeEnough) {
         correctAngle = true;
       }
@@ -245,6 +242,8 @@ void loop() {
       Serial.println("Adjusting");
       delay(400);
     }
+     
+     // angle corrections
     if (deltaPosition != 0 && correctAngle == true) {
       //Serial.println("moving forward");
       analog = Kmovep * (double)deltaPosition + Kmovei * integralMove;
@@ -275,7 +274,7 @@ void loop() {
         digitalWrite(PinDirectionL, HIGH);
       }
       
-
+      
       analogWrite(PinSpeedR, abs(analogRight));
       analogWrite(PinSpeedL, abs(analogLeft));
 
@@ -310,6 +309,7 @@ void loop() {
   // reassign angles
   oldDegreeLeft = newDegreeLeft;
   oldDegreeRight = newDegreeRight;
+   
   // ensures function isn't taking too long
   if (millis() > (currentTime + SampleTime)) Serial.println("ERROR: Under Sampling!");
 
@@ -318,6 +318,10 @@ void loop() {
 
 } // end of loop
 
+/* we send ASCII characters from the Pi to the Arduino. If the ASCII chracter equals 0 it is ignored.
+   the ASCII chracters is inserted into an array of chars, once we have the entire angle (e.g. -41.58 deg) the whole array is converted to a float.
+   This float is the angle the robot rotates too.
+*/
 
 void receiveData(int byteCount) {
 
