@@ -22,7 +22,6 @@ float angle;
 #define SampleTime      40    // sampling time in milliseconds
 #define MaxVoltage      7.5   // maximum voltage of the input into the motor
 #define WheelRadius     0.0766   // radius of wheel in meters
-//TODO: Measure wheelbase for now assume 1/3 of a meter
 #define WheelDistance   0.3048   // distance between wheels in meters
 
 // conversion constants
@@ -50,25 +49,43 @@ Encoder rightEnc(PinChannelRA, PinChannelRB);
 Encoder leftEnc(PinChannelLA, PinChannelLB);
 
 // global variables
-/*
-  actual vs desired + error
-  position distnace, position rotation
-  speed distance, speed rotation
-*/
 
 double desiredTheta = 0;
-
 double errorPosition = 0;
-
-
-
 double Ke = 0;
 double Kp = 3.3;
 double Ki = 1.1;
-
+double distanceRightWheelTravelled = 0;
+double distanceLeftWheelTravelled = 0;
+double currentTheta = 0;
+double integral = 0;
+int analog = 0;
+int deltaTheta = 0;
+unsigned long currentTime = 0;
+bool correctAngle = 0;
+double deltaPosition = 0;
+double desiredPosition = 0;
+double integralMove = 0;
+double Kmovep = 300;
+double Kmovei = 70;
+double currentPosition = 0;
+double moveCloseEnough = 0.005;
+double intMoveThreshhold = 0.5;
+bool switchAdjustPos = true;
+double adjuster = 0;
+bool stopRead = false;
+bool gotime = false;
+bool buttonState = 0;
+bool switchTime = 0;
+double velocityRight = 0;
+double velocityLeft = 0;
+double errorVelocity = 0;
+double newDegreeLeft = 0;
+double newDegreeRight = 0;
+double oldDegreeRight = 0;
+double oldDegreeLeft = 0;
 
 void receiveData(int byteCount);
-
 void setup() {
 
   // serial communication initialization
@@ -95,40 +112,6 @@ void setup() {
   Wire.onReceive(receiveData);
 
 } // end of setup
-
-
-double distanceRightWheelTravelled = 0;
-double distanceLeftWheelTravelled = 0;
-double currentTheta = 0;
-double integral = 0;
-int analog = 0;
-int deltaTheta = 0;
-unsigned long currentTime = 0;
-bool correctAngle = 0;
-double deltaPosition = 0;
-double desiredPosition = 0;
-double integralMove = 0;
-double Kmovep = 300;
-double Kmovei = 70;
-double currentPosition = 0;
-double moveCloseEnough = 0.005;
-double intMoveThreshhold = 0.5;
-bool switchAdjustPos = true;
-double adjuster = 0;
-
-bool stopRead = false;
-bool gotime = false;
-bool buttonState = 0;
-bool switchTime = 0;
-
-double velocityRight = 0;
-double velocityLeft = 0;
-double errorVelocity = 0;
-
-   double newDegreeLeft = 0;
-   double newDegreeRight = 0;
-   double oldDegreeRight = 0;
-   double oldDegreeLeft = 0;
    
 void loop() {
 
@@ -141,11 +124,6 @@ void loop() {
 
   newDegreeLeft = (double)(leftEnc.read() * ((360.0) / 3200.0));
   newDegreeRight = (double)(rightEnc.read() * ((360.0) / 3200.0));
-
-  // measures time for delay
-
-
-  // take sample of position,calculate position, calculate speed
 
   //Serial.println(currentPosition);
 
@@ -168,7 +146,7 @@ void loop() {
   velocityRight = (1000 * (newDegreeRight - oldDegreeRight)) / SampleTime;
   velocityLeft = (1000 * (newDegreeLeft - oldDegreeLeft)) / SampleTime;
 
-  
+  // calculate difference in velocity between right and left wheels
   errorVelocity = velocityRight + velocityLeft;
   
   // calculate speed of system
@@ -339,9 +317,6 @@ void loop() {
   while (millis() < (currentTime + SampleTime));
 
 } // end of loop
-
-
-
 
 
 void receiveData(int byteCount) {
