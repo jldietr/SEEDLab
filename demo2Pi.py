@@ -98,3 +98,7 @@ while True:
             
         print("No Markers Found")
         lcd.message = "No Angle Found   "
+        phi = "180.00"
+        for i in phi:
+                print(ord(i))
+                writeNumber(ord(i))
