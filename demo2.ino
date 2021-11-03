@@ -152,6 +152,8 @@ void loop() {
 
   // get desired angle by converting array of chars to float
   if ( stopRead == false) {
+     // When the Pi does not see an angle it will send "180.00" as it will never be a real angle sent by the Pi
+     // We need to account for this in the motor controller so that it steps until it gets a real angle
     //angle = atof(angleCHAR);
     angle = -116.6;
   }
