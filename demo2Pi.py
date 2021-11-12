@@ -23,6 +23,8 @@ lcd.text_direction = lcd.LEFT_TO_RIGHT
 bus = smbus.SMBus(1)
 address = 0x04
 
+checkSent = 0
+
         
 def writeNumber(value):
     bus.write_byte_data(address,0,value)
@@ -80,19 +82,59 @@ while True:
     
     # if there is blue tape find the angle with respect to the camera
     if cX != 0:
+        
+        if Y.min() >= img.shape[0]-5:
             
-        phi = (27 * (cX-width))/width #calculating phi with picture width
-        phi = round(phi,2)
-        phi = str(phi)
-        lcd.message = "Angle: " + phi + "  "
-        if len(phi) < 6:
-            digits = 6 - len(phi)
-            while digits != 0:
-                phi = phi + "0"
-                digits = 6 - len(phi)
-        for i in phi:
-            print(ord(i))
-            writeNumber(ord(i))
+            phi = "111.00"
+            lcd.message = "Angle: " + phi + "  "
+            for i in phi:
+                print(ord(i))
+                writeNumber(ord(i))
+                
+        else if Y.max() >= img.shape[0]-5:
+            
+            if chechSent = 0:
+                
+                for j in range(10):
+                    phi = "777.00"
+                    lcd.message = "Angle: " + phi + "  "
+                    for i in phi:
+                        print(ord(i))
+                        writeNumber(ord(i))
+                        
+                checkSent = 1;
+                
+            else:
+                phi = "333.00"
+                lcd.message = "Angle: " + phi + "  "
+                for i in phi:
+                    print(ord(i))
+                    writeNumber(ord(i))
+                
+        else:
+            
+            if (cX < 3 + width) and (cX > width - 3):
+                phi = "999.00"
+                lcd.message = "Angle: " + phi + "  "
+                for i in phi:
+                    print(ord(i))
+                    writeNumber(ord(i))
+            
+            else:
+                phi = (27 * (cX-width))/width #calculating phi with picture width
+                phi = round(phi,2)
+                phi = str(phi)
+                lcd.message = "Angle: " + phi + "  "
+
+                if len(phi) < 6:
+                    digits = 6 - len(phi)
+                    while digits != 0:
+                        phi = phi + "0"
+                        digits = 6 - len(phi)
+
+                for i in phi:
+                    print(ord(i))
+                    writeNumber(ord(i))
             
     else:
             
