@@ -21,9 +21,11 @@
 #define measuringTime 10000 //in milliseconds
 #define intThreshhold 6 // in meters
 #define closeEnough 1.2 // in degrees
+#define intVelThreshhold 0.2 //in m/s
+#define closeEnoughVel 0.01 //in m/s
 
 // conversion constants
-#define DegreesToRadians   0.01745329
+#define DegreesToRadians   PI/180
 #define MeterInFeet        0.3048
 
 // pins
@@ -34,14 +36,19 @@
 #define Enable              4 //enable motor
 #define PinDirectionR     7     // right motor direction
 #define PinDirectionL     8     // left motor direction
-#define PinSpeedR         9    // PWM pin for right motor speed
-#define PinSpeedL         10    // PWM pin for left motor speed    
+#define PinSpeedL         9    // PWM pin for right motor speed
+#define PinSpeedR         10    // PWM pin for left motor speed    
 #define RadiansToDegrees 180/PI
 
 //Control variables
 #define Ke                100
 #define Kp                3.6
 #define Ki                1.7
+#define Kd                1.0
+
+#define KeVel             0
+#define KpVel             10.0
+#define KiVel             0
 
 #define SLAVE_ADDRESS 0x04
 char angleCHAR[6];
@@ -56,9 +63,10 @@ float angle;
 Encoder rightEnc(PinChannelRA, PinChannelRB);
 Encoder leftEnc(PinChannelLA, PinChannelLB);
 
+//Functions declarations
 void receiveData(int byteCount);
-bool fixAngle(float angle); //Going to be used in State 2 (Potentially 3 and 4)
-void moveForward(float desVelocity);//Going to be used in State 3 and 4
+bool fixAngle(double angle, double currentThetaRight, double currentThetaLeft, double errorTheta); //Going to be used in State 2 (Potentially 3 and 4)
+void moveForward(double desVelocity, double currentVelocityRight, double currentVelocityLeft, double errorVelocityRight, double errorVelocityLeft, double desTurnRate);//Going to be used in State 3 and 4
 void rotateInPlace(bool, double); //Going to be used in State 1
 
 void setup() {
@@ -107,21 +115,24 @@ void loop() {
   static double newDegreeRight = 0;
   static double oldDegreeLeft = 0;
   static double oldDegreeRight = 0;
-  //Distance
+  //Distance Variables
   static double distanceRightWheelTravelled = 0;
   static double distanceLeftWheelTravelled = 0;
   static double errorPosition = 0;
-  //Velocity
+  //Velocity Variables
   static double velocityRight = 0;
   static double velocityLeft = 0;
+  static double tanVelocityRight = 0;
+  static double tanVelocityLeft = 0;
   static double errorVelocity = 0;
-  //Angular Velocity
+  static double errorTanVelocity = 0;
+  //Angular Position Variables
   static double currentThetaRight = 0;
   static double currentThetaLeft = 0;
   static double errorTheta = 0;
 
   //system state flags
-  static bool stateFindTape = 1;
+  static bool stateFindTape = 0; //<---- SET THIS TO 1 TO START THE SEQUENCE
   static bool stateFixAngle = 0;
   static bool stateMoveToStart = 0;
   static bool stateFixAngle2 = 0;
@@ -130,14 +141,20 @@ void loop() {
   //system state flag helpers
   static bool waitedLongEnough = 0;
   static bool waitedLongEnough2 = 0;
-  
 
+
+  //Tester Values for Functions
+  static double desVelocity = 0.106;
+  static double desTurnRate = WheelDistance*DegreesToRadians*40;
+
+
+  
   //Time Reset
   currentTime = millis();
 
   //Reassign Angles
-  newDegreeLeft = (double)(leftEnc.read() * ((360.0) / 3200.0));
-  newDegreeRight = (double)(rightEnc.read() * ((360.0) / 3200.0));
+  newDegreeLeft = ((double)leftEnc.read() * ((360.0) / 3200.0));
+  newDegreeRight = ((double)rightEnc.read() * ((360.0) / 3200.0));
 
   //Calculations of Position and Velocity
   distanceRightWheelTravelled =
@@ -155,15 +172,18 @@ void loop() {
 
   velocityRight = ((1000 * newDegreeRight - 1000 * oldDegreeRight)) / SampleTime;
   velocityLeft = -((1000 * newDegreeLeft - 1000 * oldDegreeLeft)) / SampleTime;
-
   errorVelocity = velocityRight - velocityLeft;
+
+  tanVelocityRight = ((1000 * DegreesToRadians * newDegreeRight - 1000 * DegreesToRadians * oldDegreeRight) / SampleTime) * WheelRadius;
+  tanVelocityLeft = -((1000 * DegreesToRadians * newDegreeLeft - 1000 * DegreesToRadians * oldDegreeLeft) / SampleTime) * WheelRadius;
+  errorTanVelocity = tanVelocityRight - tanVelocityLeft;
+  double errorTanVelocityRight = errorTanVelocity;
+  double errorTanVelocityLeft = errorTanVelocity;
+
 
   //rotationalVelocity = errorVelocity / WheelDistance;
 
-
-
-
-
+  moveForward(desVelocity, tanVelocityRight, tanVelocityLeft, errorTanVelocityRight - desTurnRate,errorTanVelocityLeft - desTurnRate, desTurnRate);
 
 
 
@@ -371,10 +391,10 @@ bool fixAngle(double angle, double currentThetaRight, double currentThetaLeft, d
     digitalWrite(PinDirectionR, LOW);
   }
   if (analogLeft >= 0) {
-    digitalWrite(PinDirectionL, LOW);
+    digitalWrite(PinDirectionL, HIGH);
   }
   if (analogLeft < 0) {
-    digitalWrite(PinDirectionL, HIGH);
+    digitalWrite(PinDirectionL, LOW);
   }
 
   //Set voltage of each wheel
@@ -383,7 +403,7 @@ bool fixAngle(double angle, double currentThetaRight, double currentThetaLeft, d
 
   //Calculate integral right
   if (abs(deltaThetaRight) < intThreshhold) {
-    integralRight += (double) abs(deltaThetaRight) * 0.04;
+    integralRight += (double) abs(deltaThetaRight) * SampleTime/1000.0;
   }
   else if (abs(deltaThetaRight) > intThreshhold) {
     integralRight = 0;
@@ -395,7 +415,7 @@ bool fixAngle(double angle, double currentThetaRight, double currentThetaLeft, d
 
   //Calculate integral left
   if (abs(deltaThetaLeft) < intThreshhold) {
-    integralLeft += (double) abs(deltaThetaLeft) * 0.04;
+    integralLeft += (double) abs(deltaThetaLeft) * SampleTime/1000.0;
   }
   else if (abs(deltaThetaLeft) > intThreshhold) {
     integralLeft = 0;
@@ -409,7 +429,116 @@ bool fixAngle(double angle, double currentThetaRight, double currentThetaLeft, d
 
 
 
+void moveForward(double desVelocity, double currentVelocityRight, double currentVelocityLeft, double errorVelocityRight, double errorVelocityLeft, double desTurnRate) {
+  static int analogRight = 0;
+  static int analogLeft = 0;
+  static double calculateRight = 0;
+  static double calculateLeft = 0;
+  double desVelocityRight = desVelocity + desTurnRate/2;
+  double desVelocityLeft = desVelocity - desTurnRate/2;
+  double deltaVelocityRight; 
+  deltaVelocityRight = desVelocityRight - currentVelocityRight;
+  double deltaVelocityLeft; 
+  deltaVelocityLeft = desVelocityLeft - currentVelocityLeft;
+  static double integralRight = 0;
+  static double integralLeft = 0;
 
+
+  calculateRight += deltaVelocityRight * KpVel - KeVel*(errorVelocityRight);
+  calculateLeft += deltaVelocityLeft * KpVel + KeVel*(errorVelocityLeft);
+  analogRight = calculateRight;
+  analogLeft = calculateLeft;
+
+  if(calculateRight > 255) {
+    calculateRight = 255;
+  }
+  if(calculateRight < -255){
+    calculateRight = -255;
+  }
+
+  if(calculateLeft > 255) {
+    calculateLeft = 255;
+  }
+  if(calculateLeft < -255){
+    calculateLeft = -255;
+  }
+  
+  if(analogRight > 255) {
+    analogRight = 255;
+  }
+  if(analogRight < -255){
+    analogRight = -255;
+  }
+
+  if(analogLeft > 255) {
+    analogLeft = 255;
+  }
+  if(analogLeft < -255){
+    analogLeft = -255;
+  }
+  
+  if(analogRight >= 0 && (desVelocity - desTurnRate/2 >=0)) {
+    digitalWrite(PinDirectionR, HIGH);
+    Serial.println("Right high");
+  }
+  else if(analogRight < 0 && (desVelocity - desTurnRate/2 >=0)) {
+    digitalWrite(PinDirectionR, LOW);
+    Serial.println("Right low");
+  }
+  if(analogLeft >= 0 && (desVelocity - desTurnRate/2 >= 0)) {
+    digitalWrite(PinDirectionL, LOW);
+    Serial.println("Left low");
+  }
+  else if(analogLeft < 0 && (desVelocity - desTurnRate/2 >= 0)) {
+    digitalWrite(PinDirectionL, HIGH);
+    Serial.println("Left high");
+  }
+
+  if(analogRight <= 0 && (desVelocity - desTurnRate/2 < 0)) {
+    digitalWrite(PinDirectionR, HIGH);
+    Serial.println("Right high");
+  }
+  else if(analogRight > 0 && (desVelocity - desTurnRate/2 < 0)) {
+    digitalWrite(PinDirectionR, LOW);
+    Serial.println("Right low");
+  }
+  if(analogLeft <= 0 && (desVelocity - desTurnRate/2 < 0)) {
+    digitalWrite(PinDirectionL, LOW);
+    Serial.println("Left low");
+  }
+  else if(analogLeft > 0 && (desVelocity - desTurnRate/2 < 0)) {
+    digitalWrite(PinDirectionL, HIGH);
+    Serial.println("Left high");
+  }
+
+
+  Serial.println(deltaVelocityRight, 5);
+  Serial.println(deltaVelocityLeft, 5);
+  //Serial.println(desVelocityRight, 5);
+  
+  analogWrite(PinSpeedR, abs(analogRight));
+  analogWrite(PinSpeedL, abs(analogLeft));
+
+
+  //Serial.println(leftEnc.read());
+
+  if(abs(deltaVelocityRight) < intVelThreshhold){
+    integralRight += deltaVelocityRight * SampleTime/1000; 
+  }
+  else if (abs(deltaVelocityRight) > intVelThreshhold){
+    integralRight = 0;
+  }
+
+
+  if(abs(deltaVelocityLeft) < intVelThreshhold){
+    integralLeft += deltaVelocityLeft * SampleTime/1000; 
+  }
+  else if (abs(deltaVelocityLeft) > intVelThreshhold){
+    integralLeft = 0;
+  }
+
+  
+}
 
 
 void receiveData(int byteCount) {
