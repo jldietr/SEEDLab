@@ -14,7 +14,7 @@
 // system constants
 #define SampleTime      40    // sampling time in milliseconds
 #define MaxVoltage      7.5   // maximum voltage of the input into the motor
-#define WheelRadius     0.0766   // radius of wheel in meters
+#define WheelRadius     0.0756   // radius of wheel in meters
 #define WheelDistance   0.3048   // distance between wheels in meters
 #define State2WaitTime 4000 //in milliseconds
 #define Speed 70 //analogWrite value for constant velocity
@@ -41,13 +41,13 @@
 #define RadiansToDegrees 180/PI
 
 //Control variables
-#define Ke                100
-#define Kp                3.6
-#define Ki                1.7
+#define Ke                0
+#define Kp                0.01
+#define Ki                0.0
 #define Kd                1.0
 
 #define KeVel             0
-#define KpVel             10.0
+#define KpVel             15.0
 #define KiVel             0
 
 #define SLAVE_ADDRESS 0x04
@@ -57,7 +57,16 @@ int zeroTrack;
 //string angleName;
 int angleRead;
 int i = 0;
-float angle;
+float angle = atof(angleCHAR);
+/*TODO:
+ * convert angle to float
+ * if angle is 180deg keep turning -> tapeNotFound=1 && rotateInPlace
+ * once blue tape is found interpret angle [-30deg,30deg]-> tapeNotFound=0 && stateFixAngle =1
+ * if angle == [-30deg,30deg] rotate robot until angle ==0
+ * when angle ==0 angle == 999
+ * 999 is signal to change states and move forward
+ * whne close to tape angle == 777
+ */
 
 // sets encoder functions
 Encoder rightEnc(PinChannelRA, PinChannelRB);
@@ -65,9 +74,11 @@ Encoder leftEnc(PinChannelLA, PinChannelLB);
 
 //Functions declarations
 void receiveData(int byteCount);
-bool fixAngle(double angle, double currentThetaRight, double currentThetaLeft, double errorTheta); //Going to be used in State 2 (Potentially 3 and 4)
-void moveForward(double desVelocity, double currentVelocityRight, double currentVelocityLeft, double errorVelocityRight, double errorVelocityLeft, double desTurnRate);//Going to be used in State 3 and 4
+bool fixAngle(double angle, double currentThetaRight, double currentThetaLeft, double errorTheta, double tanVelocityRight, double tanVelocityLeft); //Going to be used in State 2 (Potentially 3 and 4)
+void moveForward(double desVelocity, double currentVelocityRight, double currentVelocityLeft, double desTurnRate);//Going to be used in State 3 and 4
 void rotateInPlace(bool, double); //Going to be used in State 1
+
+double turnRateConverter(double angle);
 
 void setup() {
   // serial communication initialization
@@ -101,10 +112,10 @@ void loop() {
   static bool tapeNotFound = 1;
   static bool correctAngle = 0;
   static bool commandToStop = 0;
-  static bool commandToStop2 = 0;
+  //static bool commandToStop = 0;
 
   //communications data
-  static double desiredTheta = 0;
+  static double desiredTheta = angle;
 
   //system variables
   static double currentTime = 0;
@@ -183,82 +194,77 @@ void loop() {
 
   //rotationalVelocity = errorVelocity / WheelDistance;
 
-  moveForward(desVelocity, tanVelocityRight, tanVelocityLeft, errorTanVelocityRight - desTurnRate,errorTanVelocityLeft - desTurnRate, desTurnRate);
+  //moveForward(desVelocity, tanVelocityRight, tanVelocityLeft, desTurnRate);
+    fixAngle(45*0.90, currentThetaRight, currentThetaLeft, errorTheta, tanVelocityRight, tanVelocityLeft); //Multiply input factor by 0.9 for accuracy.
 
-
-
-  //state Finding Tape
-  //Tape is not found yet, feed 1 into the function
+  
+  //STATE 1: Finding Tape
+  if(angle == 180){ //180 means no tape found
+    stateFindTape=1; //flag for state 1
+  }
   if (stateFindTape && tapeNotFound) {
-    rotateInPlace(tapeNotFound, errorVelocity);
+    moveForward(0, tanVelocityRight, tanVelocityLeft, turnRateConverter(45));
+    //rotateInPlace(tapeNotFound,Speed);
+  }
+  if(angle > -30.0 && angle < 30.0){  //tape has been found
+    tapeNotFound=false;
   }
   //Once tape is found, tapeNotFound should be 0
   if (stateFindTape && !tapeNotFound) {
-    analogWrite(PinSpeedR, 0);
-    analogWrite(PinSpeedL, 0);
+    moveForward(0, tanVelocityRight, tanVelocityLeft, 0); //stop rotating
     stateFindTape = 0;
-    stateFixAngle = 1;
+    stateFixAngle = 1; //setting flag to switch states
     leftEnc.write(0);
-    rightEnc.write(0);
+    rightEnc.write(0); //resets encoders to 0
   }
 
-
-
-
-
-  //state Fix Angle to Tape
+  //STATE 2: Fix Angle to Tape
   if (stateFixAngle && !waitedLongEnough) {
-    delay(State2WaitTime);
+    delay(State2WaitTime); //wait in place
     waitedLongEnough = true;
   }
   if (stateFixAngle && waitedLongEnough) {
     if (correctAngle != true) {
-      correctAngle = fixAngle(desiredTheta, currentThetaRight, currentThetaLeft, errorTheta);
+      //angle should be [-30deg, 30deg]
+      correctAngle = fixAngle(desiredTheta, currentThetaRight, currentThetaLeft, errorTheta, tanVelocityRight, tanVelocityLeft);
     }
-    if (correctAngle == true) {
+    if (correctAngle == true && angle != 999) { //correction for step above if overshooting 
+      //if it overshot angle won't be 999 according to Pi
+      correctAngle = fixAngle(desiredTheta, currentThetaRight, currentThetaLeft, errorTheta, tanVelocityRight, tanVelocityLeft);
+    }
+    if (correctAngle == true && angle == 999) { //when angle == 999 it is 0deg with camera from Pi
       stateFixAngle = 0;
       stateMoveToStart = 1;
       leftEnc.write(0);
       rightEnc.write(0);
     }
   }
-
-
-
-
-
-
-
-  //state moving to tape
+  
+  //STATE 3: Moving to tape
   if (stateMoveToStart == true && !commandToStop) {
-    digitalWrite(PinDirectionR, HIGH);
-    digitalWrite(PinDirectionL, LOW);
-    analogWrite(PinSpeedR, Speed - 5);
-    analogWrite(PinSpeedL, Speed);
+    moveForward(0.15, tanVelocityRight, tanVelocityLeft, 0); //moves forward 0.15m/s with in a straight line (0 deg/s)
+    if(angle == 777){ //we are close to the tape
+      commandToStop = true;
+    }
   }
-  else if (stateMoveToStart && commandToStop) {
-    analogWrite(PinSpeedR, 0);
-    analogWrite(PinSpeedL, 0);
+  else if (stateMoveToStart && commandToStop) { //#############
+    moveForward(0, tanVelocityRight, tanVelocityLeft, 0); // will modify this based on testing so it actually reaches tape
     stateMoveToStart = 0;
+    commandToStop = false; //reset flag
     stateFixAngle2 = 1;
     waitedLongEnough = 0;
   }
-
-
-
-
-
-
-
-
-  //state fix angle at start of tape
+  
+  //STATE 4: fix angle at start of tape
+  //should be ok but if not we can add angle == 999
+  //might be an issue btwn 777 and 999, dont know which one has priority
   if (stateFixAngle2 && !waitedLongEnough) {
     delay(State2WaitTime);
     waitedLongEnough = true;
   }
   if (stateFixAngle2 && waitedLongEnough) {
     if (correctAngle != true) {
-      correctAngle = fixAngle(desiredTheta, currentThetaRight, currentThetaLeft, errorTheta);
+      correctAngle = fixAngle(desiredTheta, currentThetaRight, currentThetaLeft, errorTheta, tanVelocityRight, tanVelocityLeft);
     }
     if (correctAngle == true) {
       stateFixAngle2 = 0;
@@ -268,36 +274,29 @@ void loop() {
     }
   }
 
-
-
-
-
-
-
-  //state moving to end of tape
+  //STATE 5: moving to end of tape
   if (stateMoveToEnd && !waitedLongEnough2) {
     delay(measuringTime);
     waitedLongEnough2 = true;
   }
-  if (stateMoveToEnd && !commandToStop2) {
-    digitalWrite(PinDirectionR, HIGH);
-    digitalWrite(PinDirectionL, LOW);
-    analogWrite(PinSpeedR, Speed - 5);
-    analogWrite(PinSpeedL, Speed);
+  if (stateMoveToEnd && !commandToStop) {
+    moveForward(0.15, tanVelocityRight, tanVelocityLeft, 0);
+    if(angle == 777){
+      commandToStop = true;
+    }
+//    digitalWrite(PinDirectionR, HIGH);
+//    digitalWrite(PinDirectionL, LOW);
+//    analogWrite(PinSpeedR, Speed - 5);
+//    analogWrite(PinSpeedL, Speed);
   }
-  else if (stateMoveToEnd && commandToStop2) {
-    analogWrite(PinSpeedR, 0);
-    analogWrite(PinSpeedL, 0);
+  else if (stateMoveToEnd && commandToStop) {
+    moveForward(0, tanVelocityRight, tanVelocityLeft, 0);// will modify this based on testing so it actually reaches end of tape
+//    analogWrite(PinSpeedR, 0);
+//    analogWrite(PinSpeedL, 0);
     stateMoveToEnd = 0;
     leftEnc.write(0);
     rightEnc.write(0);
   }
-
-
-
-
-
-
 
   //Assign old angles before new loop
   oldDegreeLeft = newDegreeLeft;
@@ -309,20 +308,13 @@ void loop() {
   // creates delay of SampleTime ms
   while (millis() < (currentTime + SampleTime));
 
-}
+}//END MAIN LOOP
 
-
-
-
-
-//END MAIN LOOP
 //NOW ENTERING FUNCTIONS BELOW
 
-
-
-
-
-
+double turnRateConverter(double angle){
+  return WheelDistance*DegreesToRadians*angle;
+}
 
 void rotateInPlace(bool tapeNotFound, double errorVelocity) {
 
@@ -338,8 +330,6 @@ void rotateInPlace(bool tapeNotFound, double errorVelocity) {
     digitalWrite(PinDirectionL, HIGH);
     analogWrite(PinSpeedR, analogRight);
     analogWrite(PinSpeedL, analogLeft);
-
-
   }
   //Once the tape is found...
   if (tapeNotFound == false) {
@@ -348,14 +338,8 @@ void rotateInPlace(bool tapeNotFound, double errorVelocity) {
   }
 }
 
-
-
-
-
-
-
-
-bool fixAngle(double angle, double currentThetaRight, double currentThetaLeft, double errorTheta) {
+//Multiply input angle by 0.9 for accuracy
+bool fixAngle(double angle, double currentThetaRight, double currentThetaLeft, double errorTheta, double tanVelocityRight, double tanVelocityLeft) { 
 
   double desiredTheta = angle;
   double deltaThetaRight = desiredTheta - currentThetaRight;
@@ -364,42 +348,16 @@ bool fixAngle(double angle, double currentThetaRight, double currentThetaLeft, d
 
   static double integralRight = 0;
   static double integralLeft = 0;
-  
-  int analogRight = Kp * (double)deltaThetaRight + integralRight * Ki - Ke * errorTheta;
-  int analogLeft = Kp * (double)deltaThetaLeft + integralLeft * Ki + Ke * errorTheta;
 
-  //Fix Upper and Lower Bounds for Analog
-  if (analogRight > 100) {
-    analogRight = 100;
-  }
-  if (analogRight < -100) {
-    analogRight = -100;
-  }
 
-  if (analogLeft > 100) {
-    analogLeft = 100;
+  if(deltaThetaLeft > abs(closeEnough)) {
+    moveForward(0, tanVelocityRight, tanVelocityLeft, (deltaThetaLeft*Kp + integralLeft*Ki));
   }
-  if (analogLeft < -100) {
-    analogLeft = -100;
+  if(deltaThetaLeft <= abs(closeEnough)){
+    analogWrite(PinSpeedR, 0);
+    analogWrite(PinSpeedL, 0);
+    correctAngle = true;
   }
-
-  //Determine Direction based on the wheel's analog value
-  if (analogRight >= 0) {
-    digitalWrite(PinDirectionR, HIGH);
-  }
-  if (analogRight < 0) {
-    digitalWrite(PinDirectionR, LOW);
-  }
-  if (analogLeft >= 0) {
-    digitalWrite(PinDirectionL, HIGH);
-  }
-  if (analogLeft < 0) {
-    digitalWrite(PinDirectionL, LOW);
-  }
-
-  //Set voltage of each wheel
-  analogWrite(PinSpeedL, abs(analogLeft));
-  analogWrite(PinSpeedR, abs(analogRight));
 
   //Calculate integral right
   if (abs(deltaThetaRight) < intThreshhold) {
@@ -429,23 +387,23 @@ bool fixAngle(double angle, double currentThetaRight, double currentThetaLeft, d
 
 
 
-void moveForward(double desVelocity, double currentVelocityRight, double currentVelocityLeft, double errorVelocityRight, double errorVelocityLeft, double desTurnRate) {
+void moveForward(double desVelocity, double currentVelocityRight, double currentVelocityLeft, double desTurnRate) {
   static int analogRight = 0;
   static int analogLeft = 0;
   static double calculateRight = 0;
   static double calculateLeft = 0;
+  
   double desVelocityRight = desVelocity + desTurnRate/2;
   double desVelocityLeft = desVelocity - desTurnRate/2;
+  
   double deltaVelocityRight; 
   deltaVelocityRight = desVelocityRight - currentVelocityRight;
   double deltaVelocityLeft; 
   deltaVelocityLeft = desVelocityLeft - currentVelocityLeft;
-  static double integralRight = 0;
-  static double integralLeft = 0;
 
 
-  calculateRight += deltaVelocityRight * KpVel - KeVel*(errorVelocityRight);
-  calculateLeft += deltaVelocityLeft * KpVel + KeVel*(errorVelocityLeft);
+  calculateRight += deltaVelocityRight * KpVel;
+  calculateLeft += deltaVelocityLeft * KpVel;
   analogRight = calculateRight;
   analogLeft = calculateLeft;
 
@@ -521,26 +479,10 @@ void moveForward(double desVelocity, double currentVelocityRight, double current
 
 
   //Serial.println(leftEnc.read());
-
-  if(abs(deltaVelocityRight) < intVelThreshhold){
-    integralRight += deltaVelocityRight * SampleTime/1000; 
-  }
-  else if (abs(deltaVelocityRight) > intVelThreshhold){
-    integralRight = 0;
-  }
-
-
-  if(abs(deltaVelocityLeft) < intVelThreshhold){
-    integralLeft += deltaVelocityLeft * SampleTime/1000; 
-  }
-  else if (abs(deltaVelocityLeft) > intVelThreshhold){
-    integralLeft = 0;
-  }
-
   
 }
 
-
+//Communication with Pi
 void receiveData(int byteCount) {
 
   while (Wire.available()) {
