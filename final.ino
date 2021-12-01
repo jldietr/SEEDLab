@@ -204,11 +204,6 @@ void loop() {
   double errorTanVelocityRight = errorTanVelocity;
   double errorTanVelocityLeft = errorTanVelocity;
 
-
-  //rotationalVelocity = errorVelocity / WheelDistance;
-
-  //moveForward(0.2, tanVelocityRight, tanVelocityLeft, 0);
-  //fixAngle(45*0.90, currentThetaRight, currentThetaLeft, errorTheta, tanVelocityRight, tanVelocityLeft); //Multiply input factor by 0.9 for accuracy.
   //button to reset the robot so it can try to find a new angle
   buttonState = digitalRead(11);
   //Serial.println(switchTime);
@@ -230,56 +225,38 @@ void loop() {
       analogWrite(PinSpeedR, 0);
       analogWrite(PinSpeedL, 0);
     }
+    //resets encoders
     rightEnc.write(0);
     leftEnc.write(0);
     delay(200);
+     
   }
   
 if(goTime == true){
   //STATE 1: Finding Tape
   if (stateFindTape && tapeNotFound) {
-    moveForward(0, tanVelocityRight, tanVelocityLeft, turnRateConverter(25));
+    moveForward(0, tanVelocityRight, tanVelocityLeft, turnRateConverter(25));//turn in place
     Serial.println("state1");
-    //rotateInPlace(tapeNotFound,Speed);
   }
   if (angle > -30.0 && angle < 30.0) { //tape has been found
+     moveForward(0, tanVelocityRight, tanVelocityLeft, turnRateConverter(15));//turning speed decreased
     tapeNotFound = false;
   }
   //Once tape is found, tapeNotFound should be 0
   if (stateFindTape && !tapeNotFound) {
+     //stop rotating
     analogWrite(PinSpeedR, 0);
-    analogWrite(PinSpeedL, 0);//stop rotating
+    analogWrite(PinSpeedL, 0);
     stateFindTape = 0;
     stateMoveToStart = 1; //setting flag to switch states
-    //resets encoders to 0
   }
-
-  //STATE 2: Fix Angle to Tape
-//  if (stateFixAngle && !waitedLongEnough) {
-//    delay(State2WaitTime); //wait in place
-//    waitedLongEnough = true;
-//  }
-//  if (stateFixAngle && waitedLongEnough) {
-//    if (correctAngle != true) {
-//      //angle should be [-30deg, 30deg]
-//      correctAngle = fixAngle(desiredTheta * 0.9, currentThetaRight, currentThetaLeft, errorTheta, tanVelocityRight, tanVelocityLeft);
-//    }
-//       if (correctAngle == true && angle != 999) { //correction for step above if overshooting
-//         //if it overshot angle won't be 999 according to Pi
-//         correctAngle = fixAngle(desiredTheta*0.9, currentThetaRight, currentThetaLeft, errorTheta, tanVelocityRight, tanVelocityLeft);
-//        }
-//    if (correctAngle == true && angle == 999) { //when angle == 999 it is 0deg with camera from Pi
-//      stateFixAngle = 0;
-//      stateMoveToStart = 1;
-//    }
-//  }
 
 if(stateMoveToStart && !waitedLongEnough){
   delay(State2WaitTime);
   waitedLongEnough = true;
 }
 
-  //STATE 3: Moving to tape
+  //STATE 2: Moving to tape
   if (stateMoveToStart == true && !commandToStop) {
    // moveForward(0.15, tanVelocityRight, tanVelocityLeft, 0);
     digitalWrite(PinDirectionR, LOW);
@@ -300,48 +277,6 @@ if(stateMoveToStart && !waitedLongEnough){
     waitedLongEnough = 0;
   }
 }
-//  //STATE 4: fix angle at start of tape
-//  //should be ok but if not we can add angle == 999
-//  //might be an issue btwn 777 and 999, dont know which one has priority
-//  if (stateFixAngle2 && !waitedLongEnough) {
-//    delay(State2WaitTime);
-//    waitedLongEnough = true;
-//  }
-//  if (stateFixAngle2 && waitedLongEnough) {
-//    if (correctAngle != true) {
-//      correctAngle = fixAngle(desiredTheta, currentThetaRight, currentThetaLeft, errorTheta, tanVelocityRight, tanVelocityLeft);
-//    }
-//    if (correctAngle == true) {
-//      stateFixAngle2 = 0;
-//      stateMoveToEnd = 1;
-//      leftEnc.write(0);
-//      rightEnc.write(0);
-//    }
-//  }
-//
-//  //STATE 5: moving to end of tape
-//  if (stateMoveToEnd && !waitedLongEnough2) {
-//    delay(measuringTime);
-//    waitedLongEnough2 = true;
-//  }
-//  if (stateMoveToEnd && !commandToStop) {
-//    moveForward(0.15, tanVelocityRight, tanVelocityLeft, 0);
-//    if(angle == 777){
-//      commandToStop = true;
-//    }
-////    digitalWrite(PinDirectionR, HIGH);
-////    digitalWrite(PinDirectionL, LOW);
-////    analogWrite(PinSpeedR, Speed - 5);
-////    analogWrite(PinSpeedL, Speed);
-//  }
-//  else if (stateMoveToEnd && commandToStop) {
-//    moveForward(0, tanVelocityRight, tanVelocityLeft, 0);// will modify this based on testing so it actually reaches end of tape
-////    analogWrite(PinSpeedR, 0);
-////    analogWrite(PinSpeedL, 0);
-//    stateMoveToEnd = 0;
-//    leftEnc.write(0);
-//    rightEnc.write(0);
-//  }
 
 //Assign old angles before new loop
 oldDegreeLeft = newDegreeLeft;
