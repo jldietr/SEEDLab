@@ -240,8 +240,10 @@ if(goTime == true){
   }
   if (angle > -30.0 && angle < 30.0) { //tape has been found
      moveForward(0, tanVelocityRight, tanVelocityLeft, turnRateConverter(15));//turning speed decreased
-    tapeNotFound = false;
   }
+   if (angle == 999){ // facing tape
+      tapeNotFound = false;
+   }
   //Once tape is found, tapeNotFound should be 0
   if (stateFindTape && !tapeNotFound) {
      //stop rotating
