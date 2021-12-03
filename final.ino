@@ -166,7 +166,7 @@ void loop() {
   currentTime = millis();
   //Read angle from comms
   angle = atof(angleCHAR);
-  Serial.println(angle);
+
 
   
   if (angle < 30 && angle > -30) {
@@ -231,7 +231,6 @@ void loop() {
     delay(200);
      
   }
-  
 if(goTime == true){
   //STATE 1: Finding Tape
   if (stateFindTape && tapeNotFound) {
